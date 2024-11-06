@@ -1,7 +1,5 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
@@ -10,13 +8,8 @@ import java.util.List;
 public class Tabuleiro extends JFrame {
 
     private JPanel painel;
-    private JPanel menu;
-    private JButton iniciarButton;
-    private JButton resetButton;
-    private JButton pauseButton;
-    private JTextField placarField;
     private String direcao = "direita";
-    private long tempoAtualizacao = 350; // Velocidade inicial mais baixa
+    private long tempoAtualizacao = 350;
     private int incremento = 10;
     private Quadrado maca;
     private List<Quadrado> cobra;
@@ -24,17 +17,18 @@ public class Tabuleiro extends JFrame {
     private int placar = 0;
     private boolean jogoEmAndamento = false;
     private boolean pausado = false;
+    private boolean modoInfinito;  // Novo atributo para modo de jogo
 
-    public Tabuleiro() {
+    public Tabuleiro(boolean modoInfinito) {
+        this.modoInfinito = modoInfinito;
 
         larguraTabuleiro = alturaTabuleiro = 400;
-
         cobra = new ArrayList<>();
-        cobra.add(new Quadrado(10, 10, Color.ORANGE)); // Cobra em laranja
+        cobra.add(new Quadrado(10, 10, Color.ORANGE));
         cobra.get(0).x = larguraTabuleiro / 2;
         cobra.get(0).y = alturaTabuleiro / 2;
 
-        maca = new Quadrado(10, 10, Color.red);
+        maca = new Quadrado(10, 10, Color.RED);
         gerarNovaMaca();
 
         setTitle("Jogo da Cobrinha");
@@ -42,147 +36,53 @@ public class Tabuleiro extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        menu = new JPanel();
-        menu.setLayout(new FlowLayout());
-
-        iniciarButton = new JButton("Iniciar");
-        resetButton = new JButton("Reiniciar");
-        pauseButton = new JButton("Pausar");
-        placarField = new JTextField("Placar: 0");
-        placarField.setEditable(false);
-
-        menu.add(iniciarButton);
-        menu.add(resetButton);
-        menu.add(pauseButton);
-        menu.add(placarField);
-
         painel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                
-                // Fundo quadriculado em cinza e preto
                 setBackground(Color.BLACK);
-                for (int y = 0; y < getHeight(); y += incremento) {
-                    for (int x = 0; x < getWidth(); x += incremento) {
-                        if ((x + y) / incremento % 2 == 0) {
-                            g.setColor(Color.DARK_GRAY);
-                        } else {
-                            g.setColor(Color.BLACK);
-                        }
-                        g.fillRect(x, y, incremento, incremento);
-                    }
-                }
-
-                // Desenhar a cobra
                 for (Quadrado parte : cobra) {
                     g.setColor(parte.cor);
                     g.fillRect(parte.x, parte.y, parte.altura, parte.largura);
                 }
-
-                // Desenhar a maçã
                 g.setColor(maca.cor);
                 g.fillRect(maca.x, maca.y, maca.largura, maca.altura);
             }
         };
 
-        add(menu, BorderLayout.NORTH);
         add(painel, BorderLayout.CENTER);
-
-        setVisible(true);
-
-        iniciarButton.addActionListener(e -> {
-            Iniciar();
-            painel.requestFocusInWindow();
-        });
-
-        resetButton.addActionListener(e -> Reiniciar());
-
-        pauseButton.addActionListener(e -> Pausar());
-
+        painel.setFocusable(true);
+        painel.requestFocusInWindow();
         painel.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
                 switch (e.getKeyCode()) {
-                    case KeyEvent.VK_A: // Esquerda
-                        if (!direcao.equals("direita")) {
-                            direcao = "esquerda";
-                        }
-                        break;
-                    case KeyEvent.VK_D: // Direita
-                        if (!direcao.equals("esquerda")) {
-                            direcao = "direita";
-                        }
-                        break;
-                    case KeyEvent.VK_W: // Cima
-                        if (!direcao.equals("baixo")) {
-                            direcao = "cima";
-                        }
-                        break;
-                    case KeyEvent.VK_S: // Baixo
-                        if (!direcao.equals("cima")) {
-                            direcao = "baixo";
-                        }
-                        break;
+                    case KeyEvent.VK_A -> direcao = !direcao.equals("direita") ? "esquerda" : direcao;
+                    case KeyEvent.VK_D -> direcao = !direcao.equals("esquerda") ? "direita" : direcao;
+                    case KeyEvent.VK_W -> direcao = !direcao.equals("baixo") ? "cima" : direcao;
+                    case KeyEvent.VK_S -> direcao = !direcao.equals("cima") ? "baixo" : direcao;
                 }
             }
         });
 
-        painel.setFocusable(true);
-        painel.requestFocusInWindow();
-
-        addComponentListener(new ComponentAdapter() {
-            @Override
-            public void componentResized(ComponentEvent e) {
-                larguraTabuleiro = painel.getWidth();
-                alturaTabuleiro = painel.getHeight();
-                ajustarPosicaoMaca();
-                painel.repaint();
-            }
-        });
+        setVisible(true);
+        iniciarJogo();
     }
 
-    private void Iniciar() {
+    private void iniciarJogo() {
         jogoEmAndamento = true;
-        pausado = false;
-
         new Thread(() -> {
             while (jogoEmAndamento) {
-                if (!pausado) {
-                    try {
-                        Thread.sleep(tempoAtualizacao);
-
-                        moverCobra();
-                        checarColisao();
-                        painel.repaint();
-                        aumentarDificuldade();
-
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
+                try {
+                    Thread.sleep(tempoAtualizacao);
+                    moverCobra();
+                    checarColisao();
+                    painel.repaint();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
                 }
             }
         }).start();
-    }
-
-    private void Reiniciar() {
-        jogoEmAndamento = false;
-        pausado = false;
-        cobra.clear();
-        cobra.add(new Quadrado(10, 10, Color.ORANGE)); // Cobra em laranja
-        cobra.get(0).x = larguraTabuleiro / 2;
-        cobra.get(0).y = alturaTabuleiro / 2;
-        placar = 0;
-        placarField.setText("Placar: 0");
-        tempoAtualizacao = 300;
-        gerarNovaMaca();
-        painel.repaint();
-        JOptionPane.showMessageDialog(this, "Jogo Reiniciado!", "Reset", JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    private void Pausar() {
-        pausado = !pausado;
-        JOptionPane.showMessageDialog(this, pausado ? "Jogo Pausado!" : "Jogo Retomado!", "Pause", JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void moverCobra() {
@@ -193,75 +93,50 @@ public class Tabuleiro extends JFrame {
 
         Quadrado cabeca = cobra.get(0);
         switch (direcao) {
-            case "esquerda":
-                cabeca.x -= incremento;
-                break;
-            case "direita":
-                cabeca.x += incremento;
-                break;
-            case "cima":
-                cabeca.y -= incremento;
-                break;
-            case "baixo":
-                cabeca.y += incremento;
-                break;
+            case "esquerda" -> cabeca.x -= incremento;
+            case "direita" -> cabeca.x += incremento;
+            case "cima" -> cabeca.y -= incremento;
+            case "baixo" -> cabeca.y += incremento;
         }
 
-        if (cabeca.x < 0) cabeca.x = larguraTabuleiro - incremento;
-        if (cabeca.x >= larguraTabuleiro) cabeca.x = 0;
-        if (cabeca.y < 0) cabeca.y = alturaTabuleiro - incremento;
-        if (cabeca.y >= alturaTabuleiro) cabeca.y = 0;
+        if (modoInfinito) {
+            if (cabeca.x < 0) cabeca.x = larguraTabuleiro - incremento;
+            if (cabeca.x >= larguraTabuleiro) cabeca.x = 0;
+            if (cabeca.y < 0) cabeca.y = alturaTabuleiro - incremento;
+            if (cabeca.y >= alturaTabuleiro) cabeca.y = 0;
+        }
     }
 
     private void checarColisao() {
         Quadrado cabeca = cobra.get(0);
-        
-        // Verifica se a cabeça da cobra toca a maçã
+
         if (Math.abs(cabeca.x - maca.x) < incremento && Math.abs(cabeca.y - maca.y) < incremento) {
-            cobra.add(new Quadrado(10, 10, Color.ORANGE)); // Cresce a cobra
-            placar++; // Aumenta o placar
-            placarField.setText("Placar: " + placar); // Atualiza o placar na interface
+            cobra.add(new Quadrado(10, 10, Color.ORANGE));
+            placar++;
             gerarNovaMaca();
         }
 
-        // Colisão com o próprio corpo
         for (int i = 1; i < cobra.size(); i++) {
             if (cobra.get(i).x == cabeca.x && cobra.get(i).y == cabeca.y) {
-                jogoEmAndamento = false;
-                JOptionPane.showMessageDialog(this, "Fim de Jogo! Colisão com o próprio corpo.", "Fim", JOptionPane.INFORMATION_MESSAGE);
-                Reiniciar();
+                fimDeJogo("Colisão com o corpo!");
             }
         }
+
+        if (!modoInfinito) {
+            if (cabeca.x < 0 || cabeca.x >= larguraTabuleiro || cabeca.y < 0 || cabeca.y >= alturaTabuleiro) {
+                fimDeJogo("Colisão com a borda!");
+            }
+        }
+    }
+
+    private void fimDeJogo(String mensagem) {
+        jogoEmAndamento = false;
+        JOptionPane.showMessageDialog(this, "Fim de Jogo! " + mensagem, "Fim", JOptionPane.INFORMATION_MESSAGE);
+        System.exit(0);
     }
 
     private void gerarNovaMaca() {
         maca.x = (int) (Math.random() * (larguraTabuleiro / incremento)) * incremento;
         maca.y = (int) (Math.random() * (alturaTabuleiro / incremento)) * incremento;
-    }
-
-    private void ajustarPosicaoMaca() {
-        if (maca.x >= larguraTabuleiro) maca.x = larguraTabuleiro - incremento;
-        if (maca.y >= alturaTabuleiro) maca.y = alturaTabuleiro - incremento;
-    }
-
-    private void aumentarDificuldade() {
-        if (tempoAtualizacao > 150) { // Reduz a velocidade mais lentamente
-            tempoAtualizacao -= 1;
-        }
-    }
-
-    public static void main(String[] args) {
-        new Tabuleiro();
-    }
-
-    private class Quadrado {
-        int x, y, largura, altura;
-        Color cor;
-
-        public Quadrado(int largura, int altura, Color cor) {
-            this.largura = largura;
-            this.altura = altura;
-            this.cor = cor;
-        }
     }
 }
